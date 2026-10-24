@@ -377,7 +377,6 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   title: string;
-  passcode: string;
   allowedModules: string[];
   lastLogin: string;
   active: boolean;

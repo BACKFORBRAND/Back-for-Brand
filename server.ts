@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import compression from 'compression';
+import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
@@ -99,6 +100,420 @@ Key Information:
 Lead Extraction:
 If the user provides their name, email address, phone number, or business needs, acknowledge it warmly and confirm that Back for Brand will follow up.`;
 
+// ============================================================================
+// SERVER-SIDE AUTHENTICATION & SECURITY ENGINE (ZERO CLIENT-SIDE CREDENTIALS)
+// ============================================================================
+interface ServerUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ceo' | 'services_manager' | 'sales_rep' | 'client_viewer';
+  title: string;
+  salt: string;
+  passwordHash: string;
+  allowedModules: string[];
+  lastLogin: string;
+  active: boolean;
+  avatarBg?: string;
+  phone?: string;
+}
+
+// Scrypt password hashing with high-entropy salt
+function hashPassword(password: string, customSalt?: string): { salt: string; hash: string } {
+  const salt = customSalt || crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  return {
+    salt,
+    hash: derivedKey.toString('hex'),
+  };
+}
+
+// Constant-time comparison to prevent timing attacks
+function verifyPassword(password: string, salt: string, storedHash: string): boolean {
+  try {
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    const storedBuffer = Buffer.from(storedHash, 'hex');
+    if (derivedKey.length !== storedBuffer.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(derivedKey, storedBuffer);
+  } catch {
+    return false;
+  }
+}
+
+// Sanitize user: never expose salt or passwordHash to client
+function sanitizeUser(user: ServerUser) {
+  const { salt: _salt, passwordHash: _hash, ...safe } = user;
+  return safe;
+}
+
+// Server-side user database: initialized with cryptographically salted hashes
+const serverUsers: ServerUser[] = [
+  (() => {
+    const cred = hashPassword(process.env.CEO_DEFAULT_PASSWORD || 'ceo777');
+    return {
+      id: 'usr-ceo',
+      name: 'Ghazi Wazir',
+      email: 'backforbrand@gmail.com',
+      role: 'ceo' as const,
+      title: 'Chief Executive Officer (Founder)',
+      salt: cred.salt,
+      passwordHash: cred.hash,
+      allowedModules: ['*'],
+      lastLogin: 'Just now (Active)',
+      active: true,
+      phone: '+923001234567',
+    };
+  })(),
+  (() => {
+    const cred = hashPassword(process.env.SERVICES_DEFAULT_PASSWORD || 'services123');
+    return {
+      id: 'usr-services',
+      name: 'Tariq Mansoor',
+      email: 'tariq@backforbrand.com',
+      role: 'services_manager' as const,
+      title: 'Services & Operations Manager',
+      salt: cred.salt,
+      passwordHash: cred.hash,
+      allowedModules: [
+        'Services Delivery',
+        'Funnels & Pages',
+        'Template Gallery',
+        'Templates',
+        'Booking Calendar',
+        'WhatsApp & Email',
+        'Automations',
+        'Analytics',
+        'Contacts',
+      ],
+      lastLogin: 'Today 08:30 AM',
+      active: true,
+    };
+  })(),
+  (() => {
+    const cred = hashPassword(process.env.SALES_DEFAULT_PASSWORD || 'sales123');
+    return {
+      id: 'usr-sales',
+      name: 'Sara Ahmed',
+      email: 'sara@backforbrand.com',
+      role: 'sales_rep' as const,
+      title: 'Senior Acquisition & CRM Executive',
+      salt: cred.salt,
+      passwordHash: cred.hash,
+      allowedModules: [
+        'CRM Pipeline',
+        'Contacts',
+        'Funnels & Pages',
+        'Template Gallery',
+        'Templates',
+        'Automations',
+        'WhatsApp AI Agent',
+        'Tracking links',
+        'Analytics',
+      ],
+      lastLogin: 'Today 09:12 AM',
+      active: true,
+    };
+  })(),
+  (() => {
+    const cred = hashPassword(process.env.CLIENT_DEFAULT_PASSWORD || 'client123');
+    return {
+      id: 'usr-client',
+      name: 'Bab Al-Khaleej Representative',
+      email: 'client@babalkhaleej.bh',
+      role: 'client_viewer' as const,
+      title: 'Enterprise Client Representative',
+      salt: cred.salt,
+      passwordHash: cred.hash,
+      allowedModules: ['Services Delivery', 'Booking Calendar'],
+      lastLogin: 'Yesterday 17:00 PM',
+      active: true,
+    };
+  })(),
+];
+
+// Rate limiting & Lockout tracker
+interface AttemptTracker {
+  failedCount: number;
+  lockedUntil: number | null;
+  lastAttempt: number;
+}
+const ipAttempts = new Map<string, AttemptTracker>();
+const emailAttempts = new Map<string, AttemptTracker>();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15-minute lockout
+
+function getClientIp(req: express.Request): string {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
+  return req.ip || req.socket.remoteAddress || '127.0.0.1';
+}
+
+function checkLockout(tracker: AttemptTracker | undefined): { isLocked: boolean; remainingSeconds: number } {
+  if (!tracker || !tracker.lockedUntil) return { isLocked: false, remainingSeconds: 0 };
+  const now = Date.now();
+  if (now < tracker.lockedUntil) {
+    return { isLocked: true, remainingSeconds: Math.ceil((tracker.lockedUntil - now) / 1000) };
+  }
+  // Lockout has expired
+  tracker.lockedUntil = null;
+  tracker.failedCount = 0;
+  return { isLocked: false, remainingSeconds: 0 };
+}
+
+function recordFailedAttempt(tracker: AttemptTracker): { isLocked: boolean; remainingSeconds: number } {
+  tracker.failedCount += 1;
+  tracker.lastAttempt = Date.now();
+  if (tracker.failedCount >= MAX_FAILED_ATTEMPTS) {
+    tracker.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    return { isLocked: true, remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000) };
+  }
+  return { isLocked: false, remainingSeconds: 0 };
+}
+
+// Active session token registry
+interface SessionInfo {
+  userId: string;
+  createdAt: number;
+  expiresAt: number;
+  ip: string;
+}
+const activeSessions = new Map<string, SessionInfo>();
+const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// API: Team Members (Sanitized metadata only - no passwords/salts)
+app.get('/api/auth/team', (_req, res) => {
+  res.json({ teamMembers: serverUsers.map(sanitizeUser) });
+});
+
+// API: User Authentication (Login with password verification & rate limiting)
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const clientIp = getClientIp(req);
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    // 1. Check IP and Email lockout status
+    const ipTracker = ipAttempts.get(clientIp) || { failedCount: 0, lockedUntil: null, lastAttempt: Date.now() };
+    ipAttempts.set(clientIp, ipTracker);
+
+    const emailTracker = emailAttempts.get(normalizedEmail) || { failedCount: 0, lockedUntil: null, lastAttempt: Date.now() };
+    emailAttempts.set(normalizedEmail, emailTracker);
+
+    const ipLock = checkLockout(ipTracker);
+    const emailLock = checkLockout(emailTracker);
+
+    if (ipLock.isLocked || emailLock.isLocked) {
+      const waitSeconds = Math.max(ipLock.remainingSeconds, emailLock.remainingSeconds);
+      const waitMinutes = Math.ceil(waitSeconds / 60);
+      return res.status(429).json({
+        error: `Account temporarily locked due to ${MAX_FAILED_ATTEMPTS} consecutive failed login attempts. Please try again in ${waitMinutes} minute${waitMinutes === 1 ? '' : 's'}.`,
+        locked: true,
+        lockoutRemainingSeconds: waitSeconds,
+      });
+    }
+
+    // 2. Locate user account on server
+    const user = serverUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
+
+    if (!user) {
+      // Record failed attempt for IP and email
+      recordFailedAttempt(ipTracker);
+      recordFailedAttempt(emailTracker);
+      const remaining = Math.max(0, MAX_FAILED_ATTEMPTS - ipTracker.failedCount);
+      return res.status(401).json({
+        error: 'Invalid credentials. Please verify your email and password.',
+        attemptsRemaining: remaining,
+      });
+    }
+
+    // 3. Verify password via constant-time cryptographic scrypt comparison
+    const isValid = verifyPassword(String(password).trim(), user.salt, user.passwordHash);
+
+    if (!isValid) {
+      recordFailedAttempt(ipTracker);
+      recordFailedAttempt(emailTracker);
+      const remaining = Math.max(0, MAX_FAILED_ATTEMPTS - ipTracker.failedCount);
+      return res.status(401).json({
+        error: 'Invalid credentials. Please verify your email and password.',
+        attemptsRemaining: remaining,
+      });
+    }
+
+    // 4. Verify account active status
+    if (!user.active) {
+      return res.status(403).json({
+        error: 'This access account has been suspended by the CEO.',
+      });
+    }
+
+    // 5. Successful login: reset failed attempt trackers
+    ipTracker.failedCount = 0;
+    ipTracker.lockedUntil = null;
+    emailTracker.failedCount = 0;
+    emailTracker.lockedUntil = null;
+
+    user.lastLogin = 'Just now (Active)';
+
+    // 6. Generate cryptographically strong session token
+    const token = crypto.randomBytes(32).toString('hex');
+    activeSessions.set(token, {
+      userId: user.id,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_EXPIRATION_MS,
+      ip: clientIp,
+    });
+
+    console.log(`[Auth] User authenticated: ${user.name} (${user.email}) as ${user.role}. IP: ${clientIp}`);
+
+    return res.json({
+      success: true,
+      token,
+      user: sanitizeUser(user),
+    });
+  } catch (err: any) {
+    console.error('Error in /api/auth/login:', err);
+    return res.status(500).json({ error: 'Authentication service encountered an unexpected error.' });
+  }
+});
+
+// API: Get Current Authenticated User via Session Token
+app.get('/api/auth/me', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No authorization session token provided.' });
+    }
+
+    const token = authHeader.slice(7).trim();
+    const session = activeSessions.get(token);
+
+    if (!session) {
+      return res.status(401).json({ error: 'Session expired or invalid.' });
+    }
+
+    if (Date.now() > session.expiresAt) {
+      activeSessions.delete(token);
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+
+    const user = serverUsers.find((u) => u.id === session.userId);
+    if (!user || !user.active) {
+      return res.status(403).json({ error: 'User account not active.' });
+    }
+
+    return res.json({
+      success: true,
+      user: sanitizeUser(user),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Session verification failed' });
+  }
+});
+
+// API: Logout (Invalidates session token on server)
+app.post('/api/auth/logout', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : req.body.token;
+
+    if (token && activeSessions.has(token)) {
+      activeSessions.delete(token);
+    }
+
+    return res.json({ success: true, message: 'Logged out successfully.' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Logout failed' });
+  }
+});
+
+// API: Demo Role Switcher (Issues secure session for selected role without client passwords)
+app.post('/api/auth/demo-switch', (req, res) => {
+  try {
+    const { role } = req.body;
+    const user = serverUsers.find((u) => u.role === role) || serverUsers[0];
+
+    const token = crypto.randomBytes(32).toString('hex');
+    activeSessions.set(token, {
+      userId: user.id,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_EXPIRATION_MS,
+      ip: getClientIp(req),
+    });
+
+    return res.json({
+      success: true,
+      token,
+      user: sanitizeUser(user),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Role simulation failed' });
+  }
+});
+
+// API: CEO Reset User Password (Hashes on server, never exposes plain text)
+app.post('/api/auth/users/:id/reset-password', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const user = serverUsers.find((u) => u.id === id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const cred = hashPassword(newPassword);
+    user.salt = cred.salt;
+    user.passwordHash = cred.hash;
+
+    console.log(`[Auth] Password updated and salted for user: ${user.name} (${user.email})`);
+    return res.json({
+      success: true,
+      message: `Password securely updated for ${user.name}.`,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Password reset failed' });
+  }
+});
+
+// API: Create new Team Member (Server-side hash & storage)
+app.post('/api/auth/users', (req, res) => {
+  try {
+    const { name, email, role, title, initialPassword, allowedModules } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required.' });
+    }
+
+    const cred = hashPassword(initialPassword || crypto.randomBytes(8).toString('hex'));
+    const newUser: ServerUser = {
+      id: 'usr-' + crypto.randomUUID(),
+      name,
+      email: email.trim().toLowerCase(),
+      role: role || 'services_manager',
+      title: title || 'Team Specialist',
+      salt: cred.salt,
+      passwordHash: cred.hash,
+      allowedModules: allowedModules || ['Services Delivery'],
+      lastLogin: 'Never',
+      active: true,
+    };
+
+    serverUsers.push(newUser);
+    return res.status(201).json({ success: true, user: sanitizeUser(newUser) });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to create user.' });
+  }
+});
+
 // API: AI Chat Concierge endpoint
 app.post('/api/chat', async (req, res) => {
   try {
@@ -119,7 +534,7 @@ app.post('/api/chat', async (req, res) => {
         need: 'AI Concierge Inquiry',
       };
       storedLeads.unshift({
-        id: 'lead-' + Math.random().toString(36).slice(2, 9),
+        id: 'lead-' + crypto.randomUUID(),
         ...leadCaptured,
         src: 'WhatsApp',
         stage: 'New',
@@ -194,7 +609,7 @@ app.get('/api/leads', (_req, res) => {
 app.post('/api/leads', (req, res) => {
   const newLead = {
     ...req.body,
-    id: req.body.id || 'lead-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'lead-' + crypto.randomUUID(),
     createdAt: req.body.createdAt || new Date().toISOString(),
   };
   storedLeads.unshift(newLead);
@@ -209,7 +624,7 @@ app.get('/api/bookings', (_req, res) => {
 app.post('/api/bookings', (req, res) => {
   const newBooking = {
     ...req.body,
-    id: req.body.id || 'bk-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'bk-' + crypto.randomUUID(),
     createdAt: req.body.createdAt || new Date().toISOString(),
   };
   storedBookings.push(newBooking);
@@ -228,7 +643,7 @@ app.get('/api/whatsapp', (_req, res) => {
 app.post('/api/whatsapp', (req, res) => {
   const newMsg = {
     ...req.body,
-    id: req.body.id || 'wa-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'wa-' + crypto.randomUUID(),
     timestamp: new Date().toISOString(),
   };
   storedWhatsApp.push(newMsg);
@@ -242,7 +657,7 @@ app.get('/api/emails', (_req, res) => {
 app.post('/api/emails', (req, res) => {
   const newEmail = {
     ...req.body,
-    id: req.body.id || 'em-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'em-' + crypto.randomUUID(),
     timestamp: new Date().toISOString(),
   };
   storedEmails.push(newEmail);
@@ -256,7 +671,7 @@ app.get('/api/projects', (_req, res) => {
 app.post('/api/projects', (req, res) => {
   const newProj = {
     ...req.body,
-    id: req.body.id || 'proj-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'proj-' + crypto.randomUUID(),
   };
   storedProjects.push(newProj);
   res.status(201).json({ success: true, project: newProj });
@@ -266,7 +681,7 @@ app.post('/api/projects', (req, res) => {
 app.post('/api/webhook', (req, res) => {
   const { name, email, phone, source, need, message } = req.body;
   const lead = {
-    id: 'lead-' + Math.random().toString(36).slice(2, 9),
+    id: 'lead-' + crypto.randomUUID(),
     name: name || email || 'Webhook Lead',
     email: email || '',
     phone: phone || '',
@@ -301,7 +716,7 @@ app.post('/api/webhook/systeme', (req, res) => {
     const amount = parseFloat(raw.amount || raw.price || '0') || (isSale ? 1200 : 800);
 
     const lead = {
-      id: 'lead-' + Math.random().toString(36).slice(2, 9),
+      id: 'lead-' + crypto.randomUUID(),
       name,
       email,
       phone,
@@ -434,7 +849,7 @@ app.post('/api/payments/submit-proof', (req, res) => {
     }
 
     const proof = {
-      id: 'prf-' + Math.random().toString(36).slice(2, 9),
+      id: 'prf-' + crypto.randomUUID(),
       clientName,
       clientEmail: clientEmail || '',
       clientPhone: clientPhone || '',
@@ -462,7 +877,7 @@ app.post('/api/payments/submit-proof', (req, res) => {
       console.log(`[Payment API] Matched existing lead: ${matchedLead.name}, updated stage to Booked.`);
     } else {
       storedLeads.unshift({
-        id: 'lead-' + Math.random().toString(36).slice(2, 9),
+        id: 'lead-' + crypto.randomUUID(),
         name: clientName,
         email: clientEmail || '',
         phone: clientPhone || '',
@@ -537,7 +952,7 @@ app.post('/api/webhook/stripe', (req, res) => {
         currency,
         paymentMethod: 'stripe',
         paymentMethodLabel: 'Stripe Card / Apple Pay (Auto-Cleared)',
-        transactionReference: data.id || 'cs_live_' + Math.random().toString(36).slice(2, 9),
+        transactionReference: data.id || 'cs_live_' + crypto.randomUUID(),
         receiptNote: 'Instant automated Stripe settlement',
         status: 'verified',
         submittedAt: new Date().toISOString(),
@@ -580,7 +995,7 @@ app.post('/api/webhook/paypal', (req, res) => {
         currency,
         paymentMethod: 'paypal',
         paymentMethodLabel: 'PayPal International Instant Capture',
-        transactionReference: resource.id || 'PAYPAL-TX-' + Math.random().toString(36).slice(2, 9),
+        transactionReference: resource.id || 'PAYPAL-TX-' + crypto.randomUUID(),
         receiptNote: 'Instant PayPal IPN / Webhook capture',
         status: 'verified',
         submittedAt: new Date().toISOString(),
@@ -732,7 +1147,7 @@ app.post('/api/whatsapp-agent', async (req, res) => {
     if ((qualification.qualificationScore || 70) >= 75) {
       const leadName = qualification.extractedContact.name || clientName || 'WhatsApp Qualified Lead';
       storedLeads.unshift({
-        id: 'lead-' + Math.random().toString(36).slice(2, 9),
+        id: 'lead-' + crypto.randomUUID(),
         name: leadName,
         phone: qualification.extractedContact.phone || clientPhone || '',
         email: qualification.extractedContact.email || '',
@@ -749,7 +1164,7 @@ app.post('/api/whatsapp-agent', async (req, res) => {
     if (qualification.bookingRequested) {
       const tomorrow = new Date(Date.now() + 3600000 * 24).toISOString().split('T')[0];
       storedBookings.push({
-        id: 'bk-' + Math.random().toString(36).slice(2, 9),
+        id: 'bk-' + crypto.randomUUID(),
         name: qualification.extractedContact.name || clientName || 'WhatsApp Client',
         phone: qualification.extractedContact.phone || clientPhone || '',
         email: qualification.extractedContact.email || '',
@@ -983,7 +1398,7 @@ app.get('/api/campaigns', (_req, res) => {
 app.post('/api/campaigns', (req, res) => {
   const newCmp = {
     ...req.body,
-    id: req.body.id || 'cmp-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'cmp-' + crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     leadsGenerated: 0,
     spendTotal: 0,
@@ -1012,7 +1427,7 @@ app.get('/api/ceo/approvals', (_req, res) => {
 app.post('/api/ceo/approvals', (req, res) => {
   const newAppr = {
     ...req.body,
-    id: req.body.id || 'appr-' + Math.random().toString(36).slice(2, 9),
+    id: req.body.id || 'appr-' + crypto.randomUUID(),
     status: 'pending',
     submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   };

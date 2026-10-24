@@ -193,6 +193,13 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen
       title: 'ANALYTICS & ATTRIBUTION',
       items: [
         {
+          name: 'SEO · AEO · GEO Intelligence',
+          icon: Globe,
+          highlight: true,
+          badge: 100,
+          desc: 'Google, Perplexity & AI Search Citations',
+        },
+        {
           name: 'Analytics',
           icon: BarChart3,
           highlight: true,

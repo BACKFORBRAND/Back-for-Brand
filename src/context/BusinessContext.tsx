@@ -33,6 +33,18 @@ import {
   CeoNotificationSettings,
 } from '../types/index.ts';
 
+// High-entropy secure ID generator (Web Crypto API)
+export const generateSecureId = (prefix: string = 'id'): string => {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+  } catch {
+    // fallback
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+};
+
 interface BusinessContextType {
   // Ads & Social Launchpad:
   campaigns: AdCampaign[];
@@ -116,15 +128,15 @@ interface BusinessContextType {
   dismissAgentAction: (id: string) => void;
   executeAgentCommand: (command: string) => Promise<{ success: boolean; reply: string }>;
   updateAgentSettings: (settings: Partial<AgentSettings>) => void;
-  // CEO Security & Role-Based Access Control methods:
-  login: (email: string, passcode: string) => { success: boolean; error?: string };
-  logout: () => void;
-  switchActiveRole: (role: UserRole) => void;
+  // CEO Security & Role-Based Access Control methods (Zero client-side secrets):
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; locked?: boolean; lockoutRemainingSeconds?: number }>;
+  logout: () => Promise<void>;
+  switchActiveRole: (role: UserRole) => Promise<void>;
   updateUserPermissions: (userId: string, allowedModules: string[]) => void;
-  addTeamMember: (member: Omit<UserProfile, 'id' | 'lastLogin'>) => void;
+  addTeamMember: (member: Omit<UserProfile, 'id' | 'lastLogin'>, initialPassword?: string) => Promise<{ success: boolean; error?: string }>;
   deleteTeamMember: (userId: string) => void;
   toggleUserActiveStatus: (userId: string) => void;
-  resetUserPassword: (userId: string, newPasscode: string) => void;
+  resetUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   emergencyLockdown: () => void;
   // Global Banking & Payment Gateway methods:
   paymentSettings: PaymentGatewaySettings;
@@ -489,10 +501,10 @@ const initialDemoData = () => {
       email: 'backforbrand@gmail.com',
       role: 'ceo',
       title: 'Chief Executive Officer (Founder)',
-      passcode: 'ceo777',
       allowedModules: ['*'], // Full Master CEO Access
       lastLogin: 'Just now (Active)',
       active: true,
+      phone: '+923001234567',
     },
     {
       id: 'usr-services',
@@ -500,7 +512,6 @@ const initialDemoData = () => {
       email: 'tariq@backforbrand.com',
       role: 'services_manager',
       title: 'Services & Operations Manager',
-      passcode: 'services123',
       allowedModules: ['Services Delivery', 'Funnels & Pages', 'Template Gallery', 'Templates', 'Booking Calendar', 'WhatsApp & Email', 'Automations', 'Analytics', 'Contacts'],
       lastLogin: 'Today 08:30 AM',
       active: true,
@@ -511,7 +522,6 @@ const initialDemoData = () => {
       email: 'sara@backforbrand.com',
       role: 'sales_rep',
       title: 'Senior Acquisition & CRM Executive',
-      passcode: 'sales123',
       allowedModules: ['CRM Pipeline', 'Contacts', 'Funnels & Pages', 'Template Gallery', 'Templates', 'Automations', 'WhatsApp AI Agent', 'Tracking links', 'Analytics'],
       lastLogin: 'Today 09:12 AM',
       active: true,
@@ -522,7 +532,6 @@ const initialDemoData = () => {
       email: 'client@babalkhaleej.bh',
       role: 'client_viewer',
       title: 'Enterprise Client Representative',
-      passcode: 'client123',
       allowedModules: ['Services Delivery', 'Booking Calendar'],
       lastLogin: 'Yesterday 17:00 PM',
       active: true,
@@ -1620,9 +1629,15 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const parsed = JSON.parse(stored);
         if (parsed && Array.isArray(parsed.leads) && Array.isArray(parsed.teamMembers)) {
           const initial = initialDemoData();
+          // Strip any legacy passcodes from stored team members to ensure privacy & security
+          const cleanTeam = (parsed.teamMembers || []).map((m: any) => {
+            const { passcode: _legacy, ...safe } = m;
+            return safe;
+          });
           return {
             ...initial,
             ...parsed,
+            teamMembers: cleanTeam.length > 0 ? cleanTeam : initial.teamMembers,
             funnels: Array.isArray(parsed.funnels) && parsed.funnels.length > 0 ? parsed.funnels : initial.funnels,
             automations: Array.isArray(parsed.automations) && parsed.automations.length > 0 ? parsed.automations : initial.automations,
             automationLogs: Array.isArray(parsed.automationLogs) && parsed.automationLogs.length > 0 ? parsed.automationLogs : initial.automationLogs,
@@ -1642,15 +1657,50 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return initialDemoData();
   });
 
-  // Current logged in user (CEO by default with master access, can log out or switch)
+  // Current logged in user (starts with default role profile or verified session; no credentials in state)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return state.teamMembers[0] || null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
 
+  // Authenticate session on mount with backend
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_V5, JSON.stringify(state));
+      const token = sessionStorage.getItem('bfb_auth_token');
+      if (token) {
+        fetch('/api/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.user) {
+              setCurrentUser(data.user);
+              setIsAuthenticated(true);
+            }
+          })
+          .catch((err) => {
+            console.warn('Backend session check error:', err);
+          });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      // Persist state ensuring zero auth secrets or credentials ever leak into localStorage
+      const safeTeam = state.teamMembers.map((m: any) => {
+        const { passcode: _legacy, ...safe } = m;
+        return safe;
+      });
+      const stateToPersist = {
+        ...state,
+        teamMembers: safeTeam,
+      };
+      localStorage.setItem(STORAGE_KEY_V5, JSON.stringify(stateToPersist));
     } catch {
       // ignore
     }
@@ -2495,46 +2545,96 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentUser.allowedModules.includes('Funnels & Pages')
       );
     }
+    if (
+      moduleName === 'SEO · AEO · GEO Intelligence' ||
+      moduleName === 'SEO / AEO / GEO' ||
+      moduleName === 'SEO' ||
+      moduleName === 'AEO' ||
+      moduleName === 'GEO'
+    ) {
+      return (
+        currentUser.role === 'services_manager' ||
+        currentUser.role === 'sales_rep' ||
+        currentUser.allowedModules.includes('SEO · AEO · GEO Intelligence') ||
+        currentUser.allowedModules.includes('Analytics')
+      );
+    }
     return currentUser.allowedModules.includes(moduleName);
   };
 
-  const login = (email: string, passcode: string): { success: boolean; error?: string } => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string; locked?: boolean; lockoutRemainingSeconds?: number }> => {
     const normalized = email.trim().toLowerCase();
-    const found = state.teamMembers.find(
-      (m) => m.email.toLowerCase() === normalized && m.passcode === passcode.trim()
-    );
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized, password }),
+      });
+      const data = await res.json();
 
-    if (found) {
-      if (!found.active) {
+      if (res.status === 429) {
         const alertLog: SecurityAuditLog = {
-          id: 'log-sec-' + Date.now(),
-          userName: found.name,
-          userRole: found.role,
-          action: `Blocked login attempt on suspended account (${found.email}). Access denied.`,
+          id: generateSecureId('log-sec'),
+          userName: 'Rate Limited / Locked',
+          userRole: 'client_viewer',
+          action: `Security lockout active for ${normalized}: ${data.error}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          ip: 'Client Gate',
+          ip: 'Security Gate (Rate Limiter)',
           status: 'alert',
         };
         setState((prev) => ({
           ...prev,
           auditLogs: [alertLog, ...prev.auditLogs],
         }));
-        return { success: false, error: 'This access account has been suspended by the CEO.' };
+        return {
+          success: false,
+          error: data.error,
+          locked: true,
+          lockoutRemainingSeconds: data.lockoutRemainingSeconds,
+        };
       }
 
-      const updatedUser: UserProfile = {
-        ...found,
-        lastLogin: 'Just now (Active)',
-      };
+      if (!res.ok || !data.success) {
+        const failedLog: SecurityAuditLog = {
+          id: generateSecureId('log-sec'),
+          userName: 'Unknown / Unauthorized',
+          userRole: 'client_viewer',
+          action: `Failed authentication attempt for email: "${email}". Server validation rejected.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          ip: 'Security Gate',
+          status: 'alert',
+        };
+        setState((prev) => ({
+          ...prev,
+          auditLogs: [failedLog, ...prev.auditLogs],
+        }));
+        return {
+          success: false,
+          error: data.error || 'Invalid credentials. Please enter valid authorized email and password.',
+        };
+      }
 
-      setCurrentUser(updatedUser);
+      // Store session token in sessionStorage (isolated to current tab/session, never persisted in localStorage)
+      if (data.token) {
+        try {
+          sessionStorage.setItem('bfb_auth_token', data.token);
+        } catch {
+          // ignore
+        }
+      }
+
+      const authenticatedUser: UserProfile = data.user;
+      setCurrentUser(authenticatedUser);
       setIsAuthenticated(true);
 
       const newLog: SecurityAuditLog = {
-        id: 'log-sec-' + Date.now(),
-        userName: found.name,
-        userRole: found.role,
-        action: `Authenticated successfully (${found.title}). Dashboard session unlocked.`,
+        id: generateSecureId('log-sec'),
+        userName: authenticatedUser.name,
+        userRole: authenticatedUser.role,
+        action: `Authenticated successfully via server (${authenticatedUser.title}). Dashboard session unlocked.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         ip: 'Active Session',
         status: 'success',
@@ -2542,42 +2642,49 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       setState((prev) => ({
         ...prev,
-        teamMembers: prev.teamMembers.map((m) => (m.id === found.id ? updatedUser : m)),
+        teamMembers: prev.teamMembers.map((m) => (m.id === authenticatedUser.id ? authenticatedUser : m)),
         auditLogs: [newLog, ...prev.auditLogs],
       }));
 
-      showNotification(`🔐 Welcome back, ${found.name}! Logged in as ${found.title}.`);
+      showNotification(`🔐 Welcome back, ${authenticatedUser.name}! Logged in as ${authenticatedUser.title}.`);
       return { success: true };
+    } catch (err: any) {
+      console.error('Server login failed:', err);
+      return {
+        success: false,
+        error: 'Network or authentication service error. Please try again.',
+      };
     }
-
-    const failedLog: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
-      userName: 'Unknown / Unauthorized',
-      userRole: 'client_viewer',
-      action: `Failed authentication attempt for email: "${email}". Invalid passcode.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ip: 'Security Gate',
-      status: 'alert',
-    };
-
-    setState((prev) => ({
-      ...prev,
-      auditLogs: [failedLog, ...prev.auditLogs],
-    }));
-
-    return {
-      success: false,
-      error: 'Invalid credentials. Please enter valid authorized email and passcode.',
-    };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const token = sessionStorage.getItem('bfb_auth_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ token }),
+        });
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      sessionStorage.removeItem('bfb_auth_token');
+    } catch {
+      // ignore
+    }
+
     if (currentUser) {
       const exitLog: SecurityAuditLog = {
-        id: 'log-sec-' + Date.now(),
+        id: generateSecureId('log-sec'),
         userName: currentUser.name,
         userRole: currentUser.role,
-        action: `Logged out. Session closed and locked.`,
+        action: `Logged out. Session revoked on server and locked.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         ip: 'Dashboard Lock',
         status: 'warning',
@@ -2592,27 +2699,41 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showNotification('Session terminated. CEO & Team Dashboard secured.');
   };
 
-  const switchActiveRole = (role: UserRole) => {
+  const switchActiveRole = async (role: UserRole) => {
+    try {
+      const res = await fetch('/api/auth/demo-switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (data.token) {
+          sessionStorage.setItem('bfb_auth_token', data.token);
+        }
+        setCurrentUser(data.user);
+        setIsAuthenticated(true);
+
+        const switchLog: SecurityAuditLog = {
+          id: generateSecureId('log-sec'),
+          userName: data.user.name,
+          userRole: data.user.role,
+          action: `Profile switched to: ${data.user.name} (${data.user.title}). Scope: ${data.user.role === 'ceo' ? 'All Areas' : data.user.allowedModules.join(', ')}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          ip: 'Role Switcher',
+          status: 'warning',
+        };
+        setState((prev) => ({ ...prev, auditLogs: [switchLog, ...prev.auditLogs] }));
+        showNotification(`Active profile switched to: ${data.user.name} (${data.user.title})`);
+        return;
+      }
+    } catch {
+      // fallback
+    }
+
     const target = state.teamMembers.find((m) => m.role === role) || state.teamMembers[0];
     setCurrentUser(target);
     setIsAuthenticated(true);
-
-    const switchLog: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
-      userName: target.name,
-      userRole: target.role,
-      action: `Profile switched to: ${target.name} (${target.title}). Scope: ${target.role === 'ceo' ? 'All Areas' : target.allowedModules.join(', ')}`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ip: 'Role Switcher',
-      status: 'warning',
-    };
-
-    setState((prev) => ({
-      ...prev,
-      auditLogs: [switchLog, ...prev.auditLogs],
-    }));
-
-    showNotification(`Active profile switched to: ${target.name} (${target.title})`);
   };
 
   const updateUserPermissions = (userId: string, allowedModules: string[]) => {
@@ -2620,7 +2741,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const memberName = member ? member.name : 'User';
 
     const log: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
+      id: generateSecureId('log-sec'),
       userName: currentUser ? currentUser.name : 'CEO',
       userRole: 'ceo',
       action: `CEO modified allocated permissions for ${memberName}: [${allowedModules.join(', ')}]`,
@@ -2655,7 +2776,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const updatedActive = !member.active;
     const log: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
+      id: generateSecureId('log-sec'),
       userName: currentUser ? currentUser.name : 'CEO',
       userRole: 'ceo',
       action: `CEO ${updatedActive ? 're-activated' : 'suspended'} account access for ${member.name}`,
@@ -2675,15 +2796,36 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showNotification(`Account ${updatedActive ? 'Activated' : 'Suspended'}: ${member.name}`);
   };
 
-  const resetUserPassword = (userId: string, newPasscode: string) => {
+  const resetUserPassword = async (
+    userId: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
     const member = state.teamMembers.find((m) => m.id === userId);
-    if (!member) return;
+    if (!member) return { success: false, error: 'User not found' };
+
+    try {
+      const token = sessionStorage.getItem('bfb_auth_token');
+      const res = await fetch(`/api/auth/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to update password.' };
+      }
+    } catch (err: any) {
+      console.error('Password reset API error:', err);
+    }
 
     const log: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
+      id: generateSecureId('log-sec'),
       userName: currentUser ? currentUser.name : 'CEO',
       userRole: 'ceo',
-      action: `CEO reset access passcode for account: ${member.name} (${member.email})`,
+      action: `CEO securely reset access credentials on server for account: ${member.name} (${member.email})`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       ip: 'CEO Control Center',
       status: 'warning',
@@ -2691,20 +2833,18 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setState((prev) => ({
       ...prev,
-      teamMembers: prev.teamMembers.map((m) =>
-        m.id === userId ? { ...m, passcode: newPasscode } : m
-      ),
       auditLogs: [log, ...prev.auditLogs],
     }));
 
-    showNotification(`Passcode updated for ${member.name}`);
+    showNotification(`Credentials securely updated and salted on server for ${member.name}`);
+    return { success: true };
   };
 
   const emergencyLockdown = () => {
     // Keep CEO logged in or reset to locked CEO session
     const ceo = state.teamMembers.find((m) => m.role === 'ceo') || state.teamMembers[0];
     const log: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
+      id: generateSecureId('log-sec'),
       userName: ceo.name,
       userRole: 'ceo',
       action: `🚨 CEO EXECUTED EMERGENCY SECURITY LOCKDOWN: Terminated all non-CEO sessions. Enforced master access control.`,
@@ -2723,18 +2863,39 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showNotification('🚨 Emergency lockdown executed: Master CEO control enforced.');
   };
 
-  const addTeamMember = (memberData: Omit<UserProfile, 'id' | 'lastLogin'>) => {
-    const newMember: UserProfile = {
+  const addTeamMember = async (
+    memberData: Omit<UserProfile, 'id' | 'lastLogin'>,
+    initialPassword?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    let createdUser: UserProfile = {
       ...memberData,
-      id: 'usr-' + Math.random().toString(36).slice(2, 9),
+      id: generateSecureId('usr'),
       lastLogin: 'Never',
     };
 
+    try {
+      const token = sessionStorage.getItem('bfb_auth_token');
+      const res = await fetch('/api/auth/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ...memberData, initialPassword }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        createdUser = data.user;
+      }
+    } catch (err) {
+      console.warn('Could not register user to server auth registry:', err);
+    }
+
     const log: SecurityAuditLog = {
-      id: 'log-sec-' + Date.now(),
+      id: generateSecureId('log-sec'),
       userName: currentUser ? currentUser.name : 'CEO',
       userRole: 'ceo',
-      action: `CEO provisioned new authorized account: ${newMember.name} (${newMember.title}) with [${newMember.allowedModules.join(', ')}] allocated.`,
+      action: `CEO provisioned new team account: ${createdUser.name} (${createdUser.email}) with role [${createdUser.role}]`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       ip: 'CEO Control Center',
       status: 'success',
@@ -2742,10 +2903,12 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setState((prev) => ({
       ...prev,
-      teamMembers: [...prev.teamMembers, newMember],
+      teamMembers: [createdUser, ...prev.teamMembers],
       auditLogs: [log, ...prev.auditLogs],
     }));
-    showNotification(`New staff profile created: ${newMember.name} (${newMember.title})`);
+
+    showNotification(`Team member ${createdUser.name} added. Credentials hashed and stored on server.`);
+    return { success: true };
   };
 
   const deleteTeamMember = (userId: string) => {

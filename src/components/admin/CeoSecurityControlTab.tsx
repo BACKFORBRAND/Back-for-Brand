@@ -107,19 +107,21 @@ export const CeoSecurityControlTab: React.FC = () => {
     }
   };
 
-  const handleCreateMember = (e: React.FormEvent) => {
+  const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemberName || !newMemberEmail || !newMemberPasscode) return;
 
-    addTeamMember({
-      name: newMemberName,
-      email: newMemberEmail,
-      title: newMemberTitle || 'Business Operations Specialist',
-      role: newMemberRole,
-      passcode: newMemberPasscode,
-      allowedModules: newMemberRole === 'ceo' ? ['*'] : newMemberModules,
-      active: true,
-    });
+    await addTeamMember(
+      {
+        name: newMemberName,
+        email: newMemberEmail,
+        title: newMemberTitle || 'Business Operations Specialist',
+        role: newMemberRole,
+        allowedModules: newMemberRole === 'ceo' ? ['*'] : newMemberModules,
+        active: true,
+      },
+      newMemberPasscode
+    );
 
     setNewMemberName('');
     setNewMemberEmail('');
@@ -128,9 +130,9 @@ export const CeoSecurityControlTab: React.FC = () => {
     setShowAddModal(false);
   };
 
-  const handleExecutePasswordReset = () => {
+  const handleExecutePasswordReset = async () => {
     if (resetModalUserId && newPasscodeValue) {
-      resetUserPassword(resetModalUserId, newPasscodeValue);
+      await resetUserPassword(resetModalUserId, newPasscodeValue);
       setResetModalUserId(null);
       setNewPasscodeValue('');
     }
@@ -338,7 +340,7 @@ export const CeoSecurityControlTab: React.FC = () => {
                         <span>•</span>
                         <span className="font-mono text-[11px]">{member.email}</span>
                         <span>•</span>
-                        <span className="text-[10px]">Passcode: <code className="bg-[var(--bd)] px-1.5 py-0.5 rounded font-mono">{member.passcode}</code></span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">🔒 Password Encrypted (Hashed on Server)</span>
                       </div>
                     </div>
                   </div>
@@ -358,10 +360,10 @@ export const CeoSecurityControlTab: React.FC = () => {
                         <button
                           onClick={() => {
                             setResetModalUserId(member.id);
-                            setNewPasscodeValue(member.passcode);
+                            setNewPasscodeValue('');
                           }}
                           className="px-3 py-1.5 rounded-xl bg-[var(--bg)] border border-[var(--bd)] text-[var(--ink)] hover:bg-[var(--bd)] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                          title="Reset user passcode"
+                          title="Reset user password"
                         >
                           <Key className="w-3.5 h-3.5 text-[#cca34c]" />
                           <span>Reset Key</span>
@@ -556,16 +558,16 @@ export const CeoSecurityControlTab: React.FC = () => {
           <div className="w-full max-w-md rounded-3xl bg-[var(--bg)] border border-[var(--bd)] shadow-2xl p-6 sm:p-7 space-y-4">
             <h3 className="text-base font-black text-[var(--ink)] flex items-center gap-2">
               <Key className="w-4 h-4 text-amber-500" />
-              <span>Reset Passcode for Staff Account</span>
+              <span>Reset Password for Staff Account</span>
             </h3>
             <p className="text-xs text-[var(--mu)]">
-              Enter a new access passcode for this team member.
+              Enter a new secure access password. It will be salted and cryptographically hashed on the server.
             </p>
             <input
-              type="text"
+              type="password"
               value={newPasscodeValue}
               onChange={(e) => setNewPasscodeValue(e.target.value)}
-              placeholder="e.g. securePass99"
+              placeholder="Enter new secure password (min 6 chars)"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--bd)] bg-[var(--soft)] text-[var(--ink)] font-mono text-sm focus:outline-none focus:border-[#00c48c]"
             />
             <div className="flex justify-end gap-2 pt-3">
@@ -579,7 +581,7 @@ export const CeoSecurityControlTab: React.FC = () => {
                 onClick={handleExecutePasswordReset}
                 className="px-4 py-2 rounded-xl bg-[#cca34c] hover:bg-[#b8903c] text-[#070e24] text-xs font-black cursor-pointer shadow-sm"
               >
-                Update Passcode
+                Update Password
               </button>
             </div>
           </div>

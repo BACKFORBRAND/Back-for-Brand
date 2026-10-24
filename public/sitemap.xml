@@ -3,13 +3,14 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Back for Brand LLC - Primary Homepage -->
+  <!-- Back for Brand LLC - Primary Authority Homepage -->
   <url>
     <loc>https://backforbrand.com/</loc>
     <lastmod>2026-10-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
+
   <!-- High-Ticket Consulting & Advisory Funnel -->
   <url>
     <loc>https://backforbrand.com/?funnel=consulting-growth</loc>
@@ -17,6 +18,7 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+
   <!-- Automated Clinic & Patient Booking Funnel -->
   <url>
     <loc>https://backforbrand.com/?funnel=clinic-booking</loc>
@@ -24,6 +26,7 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+
   <!-- High-AOV E-Commerce & 1-Click Upsell Funnel -->
   <url>
     <loc>https://backforbrand.com/?funnel=ecommerce-checkout</loc>
@@ -31,32 +34,36 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <!-- B2B SaaS Growth Engine -->
+
+  <!-- B2B SaaS Enterprise Growth Engine -->
   <url>
     <loc>https://backforbrand.com/?funnel=saas-growth</loc>
     <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
   </url>
+
   <!-- Local Business & Contractor Leads Funnel -->
   <url>
     <loc>https://backforbrand.com/?funnel=local-leads</loc>
     <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
   </url>
+
   <!-- 24/7 AI WhatsApp Closer & Sales Qualification Bot -->
   <url>
     <loc>https://backforbrand.com/?funnel=ai-whatsapp-closer</loc>
     <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.95</priority>
   </url>
-  <!-- Executive Business Machine OS & Control Agent -->
+
+  <!-- Executive Business Machine OS & Control Agent View -->
   <url>
     <loc>https://backforbrand.com/?view=machine</loc>
     <lastmod>2026-10-24</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>
 </urlset>

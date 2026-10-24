@@ -25,6 +25,7 @@ import { AdsSocialLaunchpadTab } from './AdsSocialLaunchpadTab.tsx';
 import { SecurityLoginView } from './SecurityLoginView.tsx';
 import { AccessDeniedBlock } from './AccessDeniedBlock.tsx';
 import { FunnelPerformanceTab } from './FunnelPerformanceTab.tsx';
+import { SeoAeoGeoAuditTab } from './SeoAeoGeoAuditTab.tsx';
 
 export const BusinessMachineView: React.FC = () => {
   const { machineTab, isAuthenticated, currentUser, isModuleAllowed } = useBusiness();
@@ -94,6 +95,13 @@ export const BusinessMachineView: React.FC = () => {
       case 'Overview KPIs':
       case 'Overview':
         return <OverviewTab />;
+      case 'SEO · AEO · GEO Intelligence':
+      case 'SEO / AEO / GEO':
+      case 'SEO & AI Search':
+      case 'SEO':
+      case 'AEO':
+      case 'GEO':
+        return <SeoAeoGeoAuditTab />;
       case 'Analytics':
         return <AnalyticsTab />;
       case 'Channel ROI':

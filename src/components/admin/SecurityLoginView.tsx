@@ -22,34 +22,44 @@ export const SecurityLoginView: React.FC = () => {
   const { login, switchActiveRole, setCurrentView, teamMembers } = useBusiness();
 
   const [email, setEmail] = useState('backforbrand@gmail.com');
-  const [passcode, setPasscode] = useState('ceo777');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password.trim()) {
+      setError('Please enter your password.');
+      return;
+    }
     setError(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const res = login(email, passcode);
-      setLoading(false);
+    try {
+      const res = await login(email, password);
       if (!res.success) {
         setError(res.error || 'Authentication failed. Please verify credentials.');
       }
-    }, 350);
+    } catch {
+      setError('Unable to connect to authentication service. Please check your network.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleQuickPreset = (presetEmail: string, presetPass: string, role: UserRole) => {
+  const handleQuickPreset = async (presetEmail: string, role: UserRole) => {
     setEmail(presetEmail);
-    setPasscode(presetPass);
+    setPassword('');
     setError(null);
     setLoading(true);
-    setTimeout(() => {
-      switchActiveRole(role);
+    try {
+      await switchActiveRole(role);
+    } catch {
+      setError('Failed to switch role session.');
+    } finally {
       setLoading(false);
-    }, 250);
+    }
   };
 
   return (
@@ -186,9 +196,9 @@ export const SecurityLoginView: React.FC = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    value={passcode}
-                    onChange={(e) => setPasscode(e.target.value)}
-                    placeholder="Enter security passcode"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter security password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#070e24] border border-[#cca34c]/30 text-white placeholder-blue-300/40 text-xs sm:text-sm focus:outline-none focus:border-[#00c48c] focus:ring-2 focus:ring-[#00c48c]/25 transition-all font-mono"
                   />
                   <button
@@ -236,7 +246,7 @@ export const SecurityLoginView: React.FC = () => {
                 {/* CEO Card */}
                 <button
                   type="button"
-                  onClick={() => handleQuickPreset('backforbrand@gmail.com', 'ceo777', 'ceo')}
+                  onClick={() => handleQuickPreset('backforbrand@gmail.com', 'ceo')}
                   className="p-2.5 rounded-xl bg-gradient-to-r from-[#070e24] via-[#0c183a] to-[#070e24] border-2 border-[#cca34c] hover:border-[#00c48c] text-left transition-all group hover:scale-[1.01] shadow-md"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -250,14 +260,14 @@ export const SecurityLoginView: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-blue-200/80">Ghazi Wazir (Founder)</div>
                   <div className="text-[9px] text-[#00c48c] font-mono mt-0.5 truncate font-semibold">
-                    ceo777 · All 10 Modules &amp; Financials
+                    Master Access · All 10 Modules &amp; Financials
                   </div>
                 </button>
 
                 {/* Services Manager Card */}
                 <button
                   type="button"
-                  onClick={() => handleQuickPreset('tariq@backforbrand.com', 'services123', 'services_manager')}
+                  onClick={() => handleQuickPreset('tariq@backforbrand.com', 'services_manager')}
                   className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/60 text-left transition-all hover:scale-[1.01]"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -271,14 +281,14 @@ export const SecurityLoginView: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-blue-200/80">Tariq Mansoor</div>
                   <div className="text-[9px] text-blue-300/60 font-mono mt-0.5 truncate">
-                    services123 · Delivery &amp; Comms
+                    Operations · Delivery &amp; Comms
                   </div>
                 </button>
 
                 {/* Sales & CRM Rep Card */}
                 <button
                   type="button"
-                  onClick={() => handleQuickPreset('sara@backforbrand.com', 'sales123', 'sales_rep')}
+                  onClick={() => handleQuickPreset('sara@backforbrand.com', 'sales_rep')}
                   className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-emerald-400/60 text-left transition-all hover:scale-[1.01]"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -292,14 +302,14 @@ export const SecurityLoginView: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-blue-200/80">Sara Ahmed</div>
                   <div className="text-[9px] text-blue-300/60 font-mono mt-0.5 truncate">
-                    sales123 · CRM &amp; WhatsApp Agent
+                    Pipelines · CRM &amp; WhatsApp Agent
                   </div>
                 </button>
 
                 {/* Client Viewer Card */}
                 <button
                   type="button"
-                  onClick={() => handleQuickPreset('client@babalkhaleej.bh', 'client123', 'client_viewer')}
+                  onClick={() => handleQuickPreset('client@babalkhaleej.bh', 'client_viewer')}
                   className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-cyan-400/60 text-left transition-all hover:scale-[1.01]"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -313,7 +323,7 @@ export const SecurityLoginView: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-blue-200/80">Bab Al-Khaleej</div>
                   <div className="text-[9px] text-blue-300/60 font-mono mt-0.5 truncate">
-                    client123 · Sprints &amp; Bookings
+                    Client Portal · Sprints &amp; Bookings
                   </div>
                 </button>
               </div>
