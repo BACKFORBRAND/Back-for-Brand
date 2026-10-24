@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *));
+
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --card: #ffffff;
+    --soft: #f4f8f6;
+    --ink: #070e24;
+    --mu: #4a5878;
+    --bd: #dce7e2;
+    --blue: #2b59ff;
+    --blue2: #1a3fd1;
+    --or: #cca34c;
+    --or2: #b8903c;
+    --yl: #ffd84d;
+    --brand-green: #00c48c;
+    --brand-green-hover: #00a876;
+    --brand-green-light: rgba(0, 196, 140, 0.12);
+    --brand-gold: #cca34c;
+    --brand-gold-hover: #b8903c;
+    --brand-gold-light: rgba(204, 163, 76, 0.15);
+    --brand-navy: #070e24;
+    --brand-navy-card: #0c183a;
+    --max: 1160px;
+  }
+
+  .dark,
+  [data-theme="dark"] {
+    --bg: #070e24;
+    --card: #0b1533;
+    --soft: #0c183a;
+    --ink: #f0f7f4;
+    --mu: #9bb0cb;
+    --bd: #1a2850;
+    --navy: #050a1b;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 90px;
+  }
+
+  body {
+    font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
+
+.highlight-brand,
+.highlight-green {
+  background: linear-gradient(transparent 65%, rgba(0, 196, 140, 0.28) 65% 95%, transparent 95%);
+  padding: 0 4px;
+}
+
+.highlight-gold,
+.highlight-yellow {
+  background: linear-gradient(transparent 65%, rgba(204, 163, 76, 0.32) 65% 95%, transparent 95%);
+  padding: 0 4px;
+}
+
+.dark .highlight-gold,
+.dark .highlight-yellow {
+  background: linear-gradient(transparent 65%, rgba(204, 163, 76, 0.45) 65% 95%, transparent 95%);
+}
+
+.funnel-trap-1 {
+  clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%);
+}
+.funnel-trap-2 {
+  clip-path: polygon(0 0, 100% 0, 93% 100%, 7% 100%);
+}
+.funnel-trap-3 {
+  clip-path: polygon(0 0, 100% 0, 90% 100%, 10% 100%);
+}
+.funnel-trap-4 {
+  clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%);
+}
+
+@keyframes flAnim {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: flAnim 6s ease-in-out infinite;
+}
+
+@keyframes rotAnim {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: rotAnim 40s linear infinite;
+}
+
+@keyframes puAnim {
+  0%, 100% { box-shadow: 0 0 0 8px rgba(43, 89, 255, 0.16); }
+  50% { box-shadow: 0 0 0 22px rgba(43, 89, 255, 0.04); }
+}
+.animate-pulse-core {
+  animation: puAnim 3s ease-in-out infinite;
+}
+
+@keyframes shBtn {
+  0% { left: -60%; }
+  100% { left: 130%; }
+}
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: skewX(-20deg);
+  animation: shBtn 3.5s infinite;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--soft);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bd);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mu);
+}
+
+/* Brand Colors & Writing Animation effects (Emerald Green #00c48c & Mustard Gold #cca34c) */
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-cursor-blink {
+  animation: cursorBlink 0.85s step-start infinite;
+}
+
+@keyframes brandGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(0, 196, 140, 0.45)) drop-shadow(0 0 4px rgba(204, 163, 76, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 24px rgba(0, 196, 140, 0.7)) drop-shadow(0 0 10px rgba(204, 163, 76, 0.5));
+  }
+}
+.animate-brand-glow {
+  animation: brandGlow 3s ease-in-out infinite;
+}
+
+@keyframes brandBorderPulse {
+  0%, 100% {
+    border-color: rgba(0, 196, 140, 0.35);
+    box-shadow: 0 0 16px rgba(0, 196, 140, 0.15);
+  }
+  50% {
+    border-color: rgba(0, 196, 140, 0.85);
+    box-shadow: 0 0 28px rgba(0, 196, 140, 0.35);
+  }
+}
+.border-brand-pulse {
+  animation: brandBorderPulse 2.8s ease-in-out infinite;
+}
+
+/* Premium motion system */
+:root {
+  --motion-ease: cubic-bezier(.2, .75, .25, 1);
+  --motion-duration: 680ms;
+}
+
+.motion-reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--motion-duration) var(--motion-ease),
+    transform var(--motion-duration) var(--motion-ease);
+  transition-delay: var(--motion-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.motion-reveal.motion-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+button, [role="button"], a, input, select, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, [role="button"] {
+  transition:
+    transform 220ms var(--motion-ease),
+    box-shadow 220ms var(--motion-ease),
+    border-color 220ms ease,
+    background-color 220ms ease,
+    color 220ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  main [class*="rounded-2xl"],
+  main [class*="rounded-xl"] {
+    transition:
+      transform 260ms var(--motion-ease),
+      box-shadow 260ms var(--motion-ease),
+      border-color 260ms ease;
+  }
+  main [class*="rounded-2xl"]:hover,
+  main [class*="rounded-xl"]:hover {
+    border-color: rgba(0, 196, 140, .38);
+  }
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover {
+    transform: translateY(-2px);
+  }
+  a[href]:not([class*="rounded"]):hover {
+    text-decoration-color: var(--brand-green);
+  }
+}
+
+button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) {
+  transform: scale(.985);
+}
+
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 3px solid rgba(0, 196, 140, .55);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .motion-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Back for Brand - AI Funnels & Business Machine",
+  "description": "High-converting sales funnels, 24/7 WhatsApp AI booking agents, CRM pipeline, CEO approval notifications, and Meta & Google Ads campaign launchpad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
