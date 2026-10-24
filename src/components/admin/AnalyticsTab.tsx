@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsTab: React.FC = () => {
-  const { leads, channels, bookings, addLead } = useBusiness();
+  const { leads, channels, bookings, addLead, setMachineTab } = useBusiness();
 
   // Filter States
   const [timeRange, setTimeRange] = useState<'7d' | '14d' | '30d'>('30d');
@@ -354,6 +354,15 @@ export const AnalyticsTab: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            <button
+              onClick={() => setMachineTab('Funnel Performance')}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-xs"
+              title="Open Funnel Performance and Drop-Off Diagnostics"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-[#00c48c]" />
+              <span>Funnel Performance Panel</span>
+            </button>
 
             {/* Simulate Lead Button to test live reactivity */}
             <button

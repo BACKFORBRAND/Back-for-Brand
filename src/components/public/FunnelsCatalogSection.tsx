@@ -31,7 +31,7 @@ export const FunnelsCatalogSection: React.FC = () => {
       <div className="max-w-[1160px] w-[92%] mx-auto text-center">
         <div className="text-[#00c48c] font-black text-xs uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-[#cca34c]" />
-          <span>Multi-Funnel Architecture</span>
+          <span>Back for Brand • Active Projects &amp; Multi-Funnel Architecture</span>
         </div>
         <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-black tracking-tight leading-tight text-[var(--ink)] mb-4">
           A dedicated funnel for <span className="highlight-gold">every service you sell</span>.

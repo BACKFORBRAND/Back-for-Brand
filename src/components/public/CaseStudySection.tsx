@@ -46,10 +46,10 @@ export const CaseStudySection: React.FC = () => {
             Built for real businesses
           </div>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[var(--ink)] mb-5">
-            Led by a founder who builds, <span className="highlight-gold">not just sells</span>.
+            Founder <span className="highlight-gold">Ghazi Wazir</span> &amp; Back for Brand Engineering
           </h2>
           <p className="text-base sm:text-lg text-[var(--mu)] leading-relaxed mb-6">
-            Ghazi Wazir leads Back for Brand LLC with an obsessive focus on applied AI, production-grade software engineering, digital transformation, and international commerce — building resilient systems that founders can launch, automate, and scale with total confidence.
+            Ghazi Wazir leads Back for Brand LLC with an obsessive focus on applied AI, production-grade software engineering, digital transformation, and international commerce — managing active projects that founders can launch, automate, and scale with total confidence.
           </p>
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <a

@@ -24,6 +24,7 @@ import { CeoApprovalsTab } from './CeoApprovalsTab.tsx';
 import { AdsSocialLaunchpadTab } from './AdsSocialLaunchpadTab.tsx';
 import { SecurityLoginView } from './SecurityLoginView.tsx';
 import { AccessDeniedBlock } from './AccessDeniedBlock.tsx';
+import { FunnelPerformanceTab } from './FunnelPerformanceTab.tsx';
 
 export const BusinessMachineView: React.FC = () => {
   const { machineTab, isAuthenticated, currentUser, isModuleAllowed } = useBusiness();
@@ -75,6 +76,12 @@ export const BusinessMachineView: React.FC = () => {
       case 'Funnels & Pages':
       case 'Funnels':
         return <FunnelsManagerTab />;
+      case 'Funnel Performance':
+      case 'Funnels Performance':
+      case 'Funnel Analytics':
+      case 'Sales Funnel':
+      case 'Sales Funnels':
+        return <FunnelPerformanceTab />;
       case 'Template Gallery':
       case 'Templates':
       case 'Templates Library':

@@ -623,6 +623,14 @@ export const FunnelsManagerTab: React.FC = () => {
               <span>Browse Template Gallery</span>
             </button>
             <button
+              onClick={() => setMachineTab('Funnel Performance')}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#cca34c]/20 to-[#cca34c]/10 hover:bg-[#cca34c]/25 border border-[#cca34c]/40 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer backdrop-blur-xs"
+              title="View Conversion Rates, Average Lead Values & Drop-Off Analytics"
+            >
+              <TrendingUp className="w-4 h-4 text-[#cca34c]" />
+              <span>Funnel Performance Dashboard</span>
+            </button>
+            <button
               onClick={handleOpenCreate}
               className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00c48c] to-[#009b6e] hover:from-[#00b07d] hover:to-[#00875e] text-white text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-[#00c48c]/30 cursor-pointer"
             >

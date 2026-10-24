@@ -32,6 +32,8 @@ import {
   Megaphone,
   CheckCheck,
   Send,
+  TrendingUp,
+  Filter,
 } from 'lucide-react';
 import { UserRole } from '../../types/index.ts';
 
@@ -161,6 +163,12 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen
           icon: Globe,
           highlight: true,
           desc: 'Multi-service funnels & embed links',
+        },
+        {
+          name: 'Funnel Performance',
+          icon: TrendingUp,
+          highlight: true,
+          desc: 'Conversion rates, lead values & drop-offs',
         },
         {
           name: 'Template Gallery',

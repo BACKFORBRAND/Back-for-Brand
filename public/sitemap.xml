@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Back for Brand LLC - Primary Homepage -->
+  <url>
+    <loc>https://backforbrand.com/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <!-- High-Ticket Consulting & Advisory Funnel -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=consulting-growth</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- Automated Clinic & Patient Booking Funnel -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=clinic-booking</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- High-AOV E-Commerce & 1-Click Upsell Funnel -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=ecommerce-checkout</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- B2B SaaS Growth Engine -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=saas-growth</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- Local Business & Contractor Leads Funnel -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=local-leads</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 24/7 AI WhatsApp Closer & Sales Qualification Bot -->
+  <url>
+    <loc>https://backforbrand.com/?funnel=ai-whatsapp-closer</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- Executive Business Machine OS & Control Agent -->
+  <url>
+    <loc>https://backforbrand.com/?view=machine</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>

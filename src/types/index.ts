@@ -269,6 +269,7 @@ export const ALL_BUSINESS_MODULES = [
   'Contacts',
   'Overview KPIs',
   'Analytics',
+  'Funnel Performance',
   'Channel ROI',
   'Tracking links',
   'Connect landing',

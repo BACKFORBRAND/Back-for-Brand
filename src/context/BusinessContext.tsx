@@ -1540,7 +1540,17 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 const STORAGE_KEY_V5 = 'bfb_control_agent_v10';
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentView, setCurrentView] = useState<'public' | 'machine'>('machine');
+  const [currentView, setCurrentView] = useState<'public' | 'machine'>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('view') === 'machine' || params.get('tab')) return 'machine';
+      }
+    } catch {
+      // ignore
+    }
+    return 'public';
+  });
   const [machineTab, setMachineTab] = useState<string>('Agent Console');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
@@ -2471,6 +2481,19 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentUser.allowedModules.includes('Templates Library'))
     ) {
       return true;
+    }
+    if (
+      moduleName === 'Funnel Performance' ||
+      moduleName === 'Funnels Performance' ||
+      moduleName === 'Funnel Analytics'
+    ) {
+      return (
+        currentUser.role === 'services_manager' ||
+        currentUser.role === 'sales_rep' ||
+        currentUser.allowedModules.includes('Funnel Performance') ||
+        currentUser.allowedModules.includes('Analytics') ||
+        currentUser.allowedModules.includes('Funnels & Pages')
+      );
     }
     return currentUser.allowedModules.includes(moduleName);
   };

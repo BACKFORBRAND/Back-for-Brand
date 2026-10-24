@@ -213,6 +213,9 @@ export const HeroSection: React.FC = () => {
           {/* Master Headline with Dynamic Animated Writing in Brand Colors */}
           <div className="mb-6">
             <h1 className="text-3xl sm:text-5xl lg:text-[58px] font-black tracking-tight leading-[1.1] text-[var(--ink)]">
+              <span className="block text-base sm:text-lg md:text-xl font-extrabold uppercase tracking-widest text-[#cca34c] dark:text-[#e5b85c] mb-2.5">
+                Back for Brand
+              </span>
               <span>Turn Visitors Into</span>
               {/* Dynamic Writing Animation in Brand Emerald Green & Mustard Gold */}
               <span className="block mt-2 min-h-[1.25em] sm:min-h-[1.2em] relative">
@@ -226,6 +229,16 @@ export const HeroSection: React.FC = () => {
                 />
               </span>
             </h1>
+
+            {/* Keyword-Rich H2 Tag for Back for Brand, Ghazi Wazir, and Active Projects */}
+            <h2 className="text-sm sm:text-base font-semibold text-[#00a876] dark:text-[#20d89f] mt-3.5 mb-2 flex flex-wrap items-center gap-2">
+              <span>Back for Brand OS Engineered by Founder Ghazi Wazir</span>
+              <span className="text-[var(--bd)] hidden sm:inline">•</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#cca34c]/15 text-[#cca34c] text-xs font-bold border border-[#cca34c]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#cca34c] animate-pulse" />
+                14+ Active Projects Running
+              </span>
+            </h2>
 
             {/* Quick Interactive Headline Mode Chips */}
             <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-1">
