@@ -282,6 +282,49 @@ interface SessionInfo {
 const activeSessions = new Map<string, SessionInfo>();
 const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Middleware: Authenticated Request Interface & Session Resolution
+export interface AuthenticatedRequest extends express.Request {
+  currentUser?: ServerUser;
+}
+
+function resolveSessionUser(req: express.Request): ServerUser | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.slice(7).trim();
+  const session = activeSessions.get(token);
+  if (!session) return null;
+  if (Date.now() > session.expiresAt) {
+    activeSessions.delete(token);
+    return null;
+  }
+  const user = serverUsers.find((u) => u.id === session.userId);
+  if (!user || !user.active) return null;
+  return user;
+}
+
+function requireAuth(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  const user = resolveSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized: Valid authentication session token required.' });
+  }
+  req.currentUser = user;
+  next();
+}
+
+function requireCeo(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  const user = resolveSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized: Authentication session token required.' });
+  }
+  if (user.role !== 'ceo') {
+    return res.status(403).json({ error: 'Forbidden: Master CEO clearance required for this operation.' });
+  }
+  req.currentUser = user;
+  next();
+}
+
 // API: Team Members (Sanitized metadata only - no passwords/salts)
 app.get('/api/auth/team', (_req, res) => {
   res.json({ teamMembers: serverUsers.map(sanitizeUser) });
@@ -456,8 +499,8 @@ app.post('/api/auth/demo-switch', (req, res) => {
   }
 });
 
-// API: CEO Reset User Password (Hashes on server, never exposes plain text)
-app.post('/api/auth/users/:id/reset-password', (req, res) => {
+// API: CEO Reset User Password (Hashes on server, strictly requires CEO session)
+app.post('/api/auth/users/:id/reset-password', requireCeo, (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
     const { newPassword } = req.body;
@@ -475,7 +518,7 @@ app.post('/api/auth/users/:id/reset-password', (req, res) => {
     user.salt = cred.salt;
     user.passwordHash = cred.hash;
 
-    console.log(`[Auth] Password updated and salted for user: ${user.name} (${user.email})`);
+    console.log(`[Auth] Password updated and salted by CEO for user: ${user.name} (${user.email})`);
     return res.json({
       success: true,
       message: `Password securely updated for ${user.name}.`,
@@ -485,8 +528,8 @@ app.post('/api/auth/users/:id/reset-password', (req, res) => {
   }
 });
 
-// API: Create new Team Member (Server-side hash & storage)
-app.post('/api/auth/users', (req, res) => {
+// API: Create new Team Member (Strictly requires CEO session)
+app.post('/api/auth/users', requireCeo, (req: AuthenticatedRequest, res) => {
   try {
     const { name, email, role, title, initialPassword, allowedModules } = req.body;
     if (!name || !email) {
@@ -901,8 +944,8 @@ app.post('/api/payments/submit-proof', (req, res) => {
   }
 });
 
-// API: Verify or Reject Payment Proof (Admin / CEO)
-app.post('/api/payments/verify', (req, res) => {
+// API: Verify or Reject Payment Proof (Strictly requires CEO session)
+app.post('/api/payments/verify', requireCeo, (req: AuthenticatedRequest, res) => {
   try {
     const { id, status } = req.body;
     const target = storedPaymentProofs.find((p) => p.id === id);
@@ -1409,7 +1452,7 @@ app.post('/api/campaigns', (req, res) => {
   res.status(201).json({ success: true, campaign: newCmp });
 });
 
-app.post('/api/campaigns/:id/launch', (req, res) => {
+app.post('/api/campaigns/:id/launch', requireAuth, (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const target = storedCampaigns.find((c) => c.id === id);
   if (!target) return res.status(404).json({ error: 'Campaign not found' });
@@ -1420,11 +1463,11 @@ app.post('/api/campaigns/:id/launch', (req, res) => {
 });
 
 // API: CEO Approvals
-app.get('/api/ceo/approvals', (_req, res) => {
+app.get('/api/ceo/approvals', requireAuth, (_req, res) => {
   res.json({ approvals: storedCeoApprovals });
 });
 
-app.post('/api/ceo/approvals', (req, res) => {
+app.post('/api/ceo/approvals', requireAuth, (req: AuthenticatedRequest, res) => {
   const newAppr = {
     ...req.body,
     id: req.body.id || 'appr-' + crypto.randomUUID(),
@@ -1435,7 +1478,7 @@ app.post('/api/ceo/approvals', (req, res) => {
   res.status(201).json({ success: true, approval: newAppr });
 });
 
-app.post('/api/ceo/approvals/:id/decide', (req, res) => {
+app.post('/api/ceo/approvals/:id/decide', requireCeo, (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const { status, note } = req.body;
   const target = storedCeoApprovals.find((a) => a.id === id);
@@ -1457,7 +1500,7 @@ app.post('/api/ceo/approvals/:id/decide', (req, res) => {
 });
 
 // API: CEO Daily Briefing & Alert Dispatch (Email & WhatsApp)
-app.post('/api/ceo/dispatch-report', async (req, res) => {
+app.post('/api/ceo/dispatch-report', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const { channel = 'both', customNote } = req.body;
     const ceoEmail = 'backforbrandllc@gmail.com';

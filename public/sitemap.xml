@@ -58,12 +58,4 @@
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
   </url>
-
-  <!-- Executive Business Machine OS & Control Agent View -->
-  <url>
-    <loc>https://backforbrand.com/?view=machine</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
 </urlset>

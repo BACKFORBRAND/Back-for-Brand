@@ -15,7 +15,9 @@ User-agent: DuckDuckBot
 User-agent: Baiduspider
 User-agent: YandexBot
 Allow: /
-Disallow: /api/private/
+Disallow: /*view=machine
+Disallow: /?view=machine
+Disallow: /api/
 
 # ------------------------------------------------------------------------------
 # 2. Answer Engine & Generative AI Search Crawlers (AEO / GEO)
@@ -32,7 +34,9 @@ User-agent: Applebot-Extended
 User-agent: Bytespider
 User-agent: CCBot
 Allow: /
-Disallow: /api/private/
+Disallow: /*view=machine
+Disallow: /?view=machine
+Disallow: /api/
 
 # ------------------------------------------------------------------------------
 # 3. Social Media Link Preview Bots (OpenGraph & Twitter Card scrapers)
@@ -51,7 +55,9 @@ Allow: /
 # ------------------------------------------------------------------------------
 User-agent: *
 Allow: /
-Disallow: /api/private/
+Disallow: /*view=machine
+Disallow: /?view=machine
+Disallow: /api/
 
 # ------------------------------------------------------------------------------
 # XML Sitemap Reference

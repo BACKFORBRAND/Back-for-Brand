@@ -2562,6 +2562,15 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return currentUser.allowedModules.includes(moduleName);
   };
 
+  const getAuthHeaders = (): Record<string, string> => {
+    try {
+      const token = sessionStorage.getItem('bfb_auth_token');
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
   const login = async (
     email: string,
     password: string
@@ -3013,6 +3022,16 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       showNotification(`Payment proof for ${target.clientName} was rejected.`);
     }
+
+    // Synchronize to backend with CEO authentication session
+    fetch('/api/payments/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ id, status }),
+    }).catch(() => {});
   };
 
   const deletePaymentProof = (id: string) => {
@@ -3040,7 +3059,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showNotification(`New Ad Campaign created: "${newCamp.campaignName}" (${newCamp.platform.toUpperCase()})!`);
     fetch('/api/campaigns', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(newCamp),
     }).catch(() => {});
     return newCamp;
@@ -3073,7 +3092,10 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
 
     showNotification(`🚀 Campaign "${target.campaignName}" is LIVE and attributing into CRM!`);
-    fetch(`/api/campaigns/${id}/launch`, { method: 'POST' }).catch(() => {});
+    fetch(`/api/campaigns/${id}/launch`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() },
+    }).catch(() => {});
     return { success: true, message: `Campaign "${target.campaignName}" is live!` };
   };
 
